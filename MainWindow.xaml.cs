@@ -14,17 +14,19 @@ public partial class MainWindow : Window
     static readonly string M26Saves = Path.Combine(Docs, "Madden NFL 26", "saves");
     static readonly string M27Saves = Path.Combine(Docs, "Madden NFL 27", "Saves");
 
-    // bundled templates (copied next to exe)
+    // bundled templates (copied next to exe).
+    // NOTE: keep filenames game-valid: ROSTER-(NAME), one dash, no other punctuation —
+    // lets users copy templates straight into their saves folder if ever needed.
     static readonly string AppDir = AppContext.BaseDirectory;
-    static string TplM26 => Path.Combine(AppDir, "Templates", "ROSTER-Official-M26");
-    static string TplM27 => Path.Combine(AppDir, "Templates", "ROSTER-Official-M27");
+    static string TplM26 => Path.Combine(AppDir, "Templates", "ROSTER-TemplateM26");
+    static string TplM27 => Path.Combine(AppDir, "Templates", "ROSTER-TemplateM27");
 
     string _sourcePath;
 
     public MainWindow()
     {
         InitializeComponent();
-        Log("LEGION OF LOOM MADDEN FILE CONVERTER");
+        Log("LEGION OF LOOM MADDEN SAVE CONVERTER");
         Log("------------------------------------");
         Log($"M26 saves: {M26Saves}");
         Log($"M27 saves: {M27Saves}");

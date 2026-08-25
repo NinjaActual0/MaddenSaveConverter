@@ -15,7 +15,7 @@ public static class RosterProfiles
     static readonly string[] M27Order = { "BLOB", "DCHT", "DFTP", "INJY", "PLAY", "PLCT", "PRSN", "TEAM" };
     static readonly string[] M26Order = { "BLOB", "DCHT", "DFTP", "INJY", "PLAY", "PLGS", "TEAM" };
 
-    public static ConvertResult M26ToM27(RosterFile src, RosterFile tpl, string outPath)
+    public static ConvertResult M26ToM27(RosterFile src, RosterFile tpl, string outPath, bool randomizePersona = true)
     {
         var res = new ConvertResult();
         void log(string s) => res.Log.Add(s);
@@ -46,14 +46,40 @@ public static class RosterProfiles
         log($"building PLCT rows: {rows.Count}");
         BuildTable(tplPlct, donor, rows);
 
-        // 2. synthesize PRSN (personas) keyed by PGID
+        // 2. synthesize PRSN (personas) keyed by PGID. M26 has no persona table, so rows are
+        //    built fresh: by default each converted player samples a REAL persona row from the
+        //    template (shuffled for even coverage) so DNA data is varied instead of uniform
+        //    zeroes; randomizePersona=false reproduces the original zeroed JS-converter output.
         var tplPrsn = Get(tpl, "PRSN") ?? throw new InvalidDataException("template has no PRSN table");
-        var prsnRows = rows.Select(r => new Dictionary<string, long>
+        var prsnRows = new List<Dictionary<string, long>>();
+        if (randomizePersona)
         {
-            ["PGID"] = r["PGID"], ["PRFC"] = 0,
-            ["DNA0"] = 0, ["DNA1"] = 0, ["DNA2"] = 0, ["DNA3"] = 0,
-            ["DNA4"] = 0, ["DNA5"] = 0, ["DNA6"] = 0, ["DNA7"] = 0
-        }).ToList();
+            var donors = tplPrsn.Records
+                .Where(r => r.Fields.ContainsKey("PGID"))
+                .Select(r => r.Fields.Where(kv => kv.Key != "PGID")
+                                     .ToDictionary(kv => kv.Key, kv => kv.Value.IntValue))
+                .ToList();
+            if (donors.Count > 0)
+            {
+                var rng = new Random();
+                var shuffled = donors.OrderBy(_ => rng.Next()).ToList();
+                foreach (var r in rows)
+                    prsnRows.Add(new Dictionary<string, long>(shuffled[prsnRows.Count % shuffled.Count])
+                    {
+                        ["PGID"] = r["PGID"]
+                    });
+                log($"persona variants sampled from {donors.Count} template PRSN rows");
+            }
+        }
+        if (prsnRows.Count == 0)
+        {
+            prsnRows = rows.Select(r => new Dictionary<string, long>
+            {
+                ["PGID"] = r["PGID"], ["PRFC"] = 0,
+                ["DNA0"] = 0, ["DNA1"] = 0, ["DNA2"] = 0, ["DNA3"] = 0,
+                ["DNA4"] = 0, ["DNA5"] = 0, ["DNA6"] = 0, ["DNA7"] = 0
+            }).ToList();
+        }
         log($"building PRSN rows: {prsnRows.Count}");
         BuildTable(tplPrsn, tplPrsn.Records[0].Fields, prsnRows);
 

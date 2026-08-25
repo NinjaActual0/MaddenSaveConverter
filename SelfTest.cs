@@ -78,8 +78,8 @@ public static class SelfTest
             foreach (var t in t27.Db.Tables)
                 Console.WriteLine($"   {t.Name} type={t.Type} entries={t.NumEntries}");
 
-            Console.WriteLine("converting M26 -> M27...");
-            var res = RosterProfiles.M26ToM27(s, t27, outPath);
+            Console.WriteLine("converting M26 -> M27 (zeroed personas, JS-parity mode)...");
+            var res = RosterProfiles.M26ToM27(s, t27, outPath, randomizePersona: false);
             foreach (var l in res.Log) Console.WriteLine("  " + l);
 
             Console.Write("verify output: ");
@@ -95,10 +95,28 @@ public static class SelfTest
                 // streams). The bar: identical structure and identical field values.
                 bool same = SemanticallyEqual(jsOut, outPath);
                 Console.WriteLine($"semantic match vs verified JS converter: {same}");
-                return same ? 0 : 3;
+                if (!same) return 3;
             }
-            Console.WriteLine("(JS reference output not found - skipped comparison)");
-            return 0;
+            else
+            {
+                Console.WriteLine("(JS reference output not found - skipped comparison)");
+            }
+
+            // randomized-persona mode: convert again and confirm PRSN rows are varied
+            Console.WriteLine("converting M26 -> M27 (randomized persona mode)...");
+            var rndPath = Path.Combine(Path.GetTempPath(), "mfc_selftest_ROSTER-2019-rnd");
+            var res2 = RosterProfiles.M26ToM27(s, RosterFile.Load(tpl), rndPath);
+            foreach (var l in res2.Log.Where(l => l.Contains("persona"))) Console.WriteLine("  " + l);
+            if (!RosterFile.Verify(rndPath, m => Console.WriteLine(m))) return 5;
+            var prsn = RosterFile.Load(rndPath).Db.Tables.First(t => t.Name == "PRSN");
+            int distinct = prsn.Records
+                .Select(r => string.Join(",", r.Fields.Where(kv => kv.Key != "PGID")
+                                                      .Select(kv => kv.Value.IntValue)))
+                .Distinct().Count();
+            Console.WriteLine($"  randomized PRSN: {prsn.Records.Count} rows, {distinct} distinct persona variants");
+            bool varied = distinct > 100;
+            Console.WriteLine(varied ? "RANDOMIZED PERSONA CHECK PASSED" : "RANDOMIZED PERSONA CHECK FAILED (too uniform)");
+            return varied ? 0 : 6;
         }
         catch (Exception ex)
         {
