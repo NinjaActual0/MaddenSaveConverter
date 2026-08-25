@@ -3,3 +3,5 @@ obj/
 Templates/
 *.user
 *.suo
+
+publish/

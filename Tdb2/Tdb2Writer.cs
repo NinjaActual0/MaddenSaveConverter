@@ -80,9 +80,9 @@ public static class Tdb2Writer
     {
         foreach (var rec in st.Records)
         {
-            foreach (var key in rec.Fields.Keys.OrderBy(k => k, StringComparer.Ordinal))
+            foreach (var kv in rec.Fields) // insertion order (matches JS subTableWriter — no sort)
             {
-                var f = rec.Fields[key];
+                var f = kv.Value;
                 ms.Write(f.RawKey);
                 if (f.Type == Tdb2Field.TYPE_STRING)
                     ms.Write(Leb.Write(f.Length));

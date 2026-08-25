@@ -21,14 +21,14 @@ public static class RosterProfiles
         void log(string s) => res.Log.Add(s);
         Tdb2Table Get(RosterFile f, string n) => f.Db.Tables.FirstOrDefault(t => t.Name == n);
 
-        var play = Get(src, "PLAY") ?? throw new InvalidDataException("source has no PLAY table");
-        log($"M26 PLAY records: {play.NumEntries}");
+        var srcPlay = Get(src, "PLAY") ?? throw new InvalidDataException("source has no PLAY table");
+        log($"M26 PLAY records: {srcPlay.NumEntries}");
 
         // 1. build PLCT (contracts) from M26 PLAY salary fields
         var tplPlct = Get(tpl, "PLCT") ?? throw new InvalidDataException("template has no PLCT table");
         var donor = tplPlct.Records[0].Fields;
         var rows = new List<Dictionary<string, long>>();
-        foreach (var r in play.Records)
+        foreach (var r in srcPlay.Records)
         {
             long G(string k) => r.Fields.TryGetValue(k, out var f) && f.Raw != null ? f.IntValue : 0;
             if (!r.Fields.ContainsKey("PGID")) continue;
@@ -83,13 +83,23 @@ public static class RosterProfiles
         log($"building PRSN rows: {prsnRows.Count}");
         BuildTable(tplPrsn, tplPrsn.Records[0].Fields, prsnRows);
 
-        // 3. assemble in M27 order; data tables from source, PLCT/PRSN rebuilt from template donors
+        // 3. assemble in M27 order; data tables passed through from source unchanged (no schema remapping)
         var newTables = new List<Tdb2Table>();
         foreach (var n in M27Order)
         {
             if (n == "PLCT") { newTables.Add(tplPlct); continue; }
             if (n == "PRSN") { newTables.Add(tplPrsn); continue; }
-            var t = Get(src, n) ?? throw new InvalidDataException($"M26 source missing table {n}");
+
+            // pass source table through unchanged — M27 accepts M26's native field schemas
+            var t = Get(src, n);
+            if (t == null && n == "INJY")
+            {
+                // use the M27 template's INJY directly (matches JS converter behavior)
+                t = Get(tpl, "INJY");
+                if (t != null) log("note: M26 source missing INJY - using template's INJY");
+            }
+            if (t == null) { t = Get(tpl, n); log($"note: M26 source missing {n} - using template's"); }
+            if (t == null) throw new InvalidDataException($"neither source nor template has table {n}");
             newTables.Add(t);
         }
 
@@ -200,5 +210,37 @@ public static class RosterProfiles
         }
         table.NumEntries = table.Records.Count;
         table.NumEntriesRaw = Leb.Write(table.NumEntries);   // writer serializes the raw bytes
+    }
+
+    static void RemapRecordFields(Tdb2Record rec, List<FieldDefinition> targetDefs)
+    {
+        var oldFields = rec.Fields;
+        rec.Fields = new Dictionary<string, Tdb2Field>(StringComparer.Ordinal);
+        foreach (var def in targetDefs)
+        {
+            var f = new Tdb2Field
+            {
+                Key = def.Name,
+                RawKey = (byte[])def.RawKey.Clone(),
+                Type = def.Type
+            };
+            if (oldFields.TryGetValue(def.Name, out var srcField))
+            {
+                f.Raw = srcField.Raw == null ? null : (byte[])srcField.Raw.Clone();
+                f.Length = srcField.Length;
+                f.SubTable = srcField.SubTable;
+            }
+            else
+            {
+                switch (def.Type)
+                {
+                    case Tdb2Field.TYPE_INT: f.Raw = Leb.Write(0); break;
+                    case Tdb2Field.TYPE_STRING: f.Raw = new byte[] { 0x00 }; f.Length = 1; break;
+                    case Tdb2Field.TYPE_FLOAT: f.FloatValue = 0f; break;
+                    case Tdb2Field.TYPE_UNK: f.Raw = new byte[] { 0x00 }; break;
+                }
+            }
+            rec.Fields[f.Key] = f;
+        }
     }
 }
