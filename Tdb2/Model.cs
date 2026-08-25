@@ -83,7 +83,6 @@ public class Tdb2Record
     public Tdb2Record SubRecord;                      // BLBM/BLOB compressed subrecords
     public bool IsSubRecord;
     public Tdb2Record ParentRecord;
-    public byte[] RawCompressed;                      // original gz bytes (type-5 unk2==2) — preserved on save
 }
 
 public class Tdb2Table

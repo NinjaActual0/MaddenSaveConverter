@@ -111,9 +111,7 @@ public static class Tdb2Reader
                 if (t.Unknown2 == 2)
                 {
                     int gzLen = (int)Leb.Read(p.ReadLebBytes());
-                    var gzBytes = p.Read(gzLen);
-                    rec.RawCompressed = gzBytes;          // preserve original stream for byte-exact save
-                    ParseCompressedRecord(gzBytes, rec, t);
+                    ParseCompressedRecord(p.Read(gzLen), rec, t);
                     t.Records.Add(rec);
                     continue;
                 }
@@ -228,9 +226,7 @@ public static class Tdb2Reader
                 if (st.Unknown2 == 2)
                 {
                     int gzLen = (int)Leb.Read(p.ReadLebBytes());
-                    var gzBytes = p.Read(gzLen);
-                    rec.RawCompressed = gzBytes;          // preserve original stream for byte-exact save
-                    ParseCompressedRecord(gzBytes, rec, st);
+                    ParseCompressedRecord(p.Read(gzLen), rec, st);
                     st.Records.Add(rec);
                     continue;
                 }
