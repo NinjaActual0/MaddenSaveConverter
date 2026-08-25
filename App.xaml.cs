@@ -8,7 +8,7 @@ public partial class App : Application
     {
         if (e.Args.Contains("--selftest"))
         {
-            Shutdown(SelfTest.Run());
+            Shutdown(SelfTest.Run(e.Args));
             return;
         }
         base.OnStartup(e);

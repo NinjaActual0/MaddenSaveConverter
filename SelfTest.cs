@@ -9,7 +9,56 @@ namespace MaddenSaveConverter;
 // verified in-game via the JS converter, then compares inner payloads.
 public static class SelfTest
 {
-    public static int Run()
+    public static int Run(string[] args = null)
+    {
+        if (args != null && args.Contains("--reverse")) return RunReverse();
+        return RunForward();
+    }
+
+    // M27 -> M26: source = the verified M27-format output of the forward conversion,
+    // template = the original M26 roster. Validates salaries migrate back into PLAY.
+    static int RunReverse()
+    {
+        Console.WriteLine("== Legion of Loom MFC self-test (reverse: M27 -> M26) ==");
+        try
+        {
+            var m27src = @"C:\Users\Ninja\AppData\Local\Temp\opencode\m26to27\ROSTER-M26CONVERTED";
+            var m26tpl = @"C:\Users\Ninja\Documents\Madden NFL 26\saves\ROSTER-2019";
+            var outPath = Path.Combine(Path.GetTempPath(), "mfc_selftest_ROSTER-back-to-26");
+
+            var s = RosterFile.Load(m27src);
+            Console.WriteLine($"  source: {s.GameTag} ver={s.VersionString}");
+            var t26 = RosterFile.Load(m26tpl);
+            Console.WriteLine($"  template: {t26.GameTag} ver={t26.VersionString}");
+
+            var res = RosterProfiles.M27ToM26(s, t26, outPath);
+            foreach (var l in res.Log) Console.WriteLine("  " + l);
+
+            Console.Write("verify output: ");
+            if (!RosterFile.Verify(outPath, m => Console.WriteLine(m))) return 2;
+
+            var reload = RosterFile.Load(outPath);
+            Console.WriteLine("reload tables: " + string.Join(" ", reload.Db.Tables.Select(t => $"{t.Name}({t.NumEntries})")));
+
+            // spot-check: salary fields must exist on PLAY again and match known values
+            var play = reload.Db.Tables.First(t => t.Name == "PLAY");
+            var pgid112 = play.Records.FirstOrDefault(r =>
+                r.Fields.TryGetValue("PGID", out var f) && f.IntValue == 112);
+            if (pgid112 == null) { Console.WriteLine("SPOT-CHECK FAILED: PGID 112 not found"); return 4; }
+            long v(string k) => pgid112.Fields.TryGetValue(k, out var f) ? f.IntValue : -1;
+            Console.WriteLine($"  PGID112 spot: PCON={v("PCON")} PSA0={v("PSA0")} PSB0={v("PSB0")} PSBO={v("PSBO")}");
+            bool ok = v("PCON") == 4 && v("PSA0") == 615 && v("PSB0") == 75;
+            Console.WriteLine(ok ? "REVERSE SELFTEST PASSED" : "REVERSE SPOT-CHECK MISMATCH");
+            return ok ? 0 : 4;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("REVERSE SELFTEST FAILED: " + ex);
+            return 1;
+        }
+    }
+
+    static int RunForward()
     {
         var src = @"C:\Users\Ninja\Documents\Madden NFL 26\saves\ROSTER-2019";
         var tpl = @"C:\Users\Ninja\Documents\Madden NFL 27\Saves\ROSTER-Official";
