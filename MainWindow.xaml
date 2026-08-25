@@ -1,0 +1,70 @@
+<Window x:Class="MaddenSaveConverter.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Legion of Loom Madden File Converter" Height="640" Width="780"
+        Background="{StaticResource BgBrush}" WindowStartupLocation="CenterScreen">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- banner -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,18">
+            <Image Source="Assets/logo.png" Height="84" RenderOptions.BitmapScalingMode="HighQuality"/>
+            <StackPanel VerticalAlignment="Center" Margin="16,0,0,0">
+                <TextBlock Text="LEGION OF LOOM" FontSize="26" FontWeight="Bold"
+                           Foreground="{StaticResource AccentBrush}"/>
+                <TextBlock Text="MADDEN FILE CONVERTER" FontSize="14" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextBrush}" Margin="2,2,0,0"/>
+                <TextBlock Text="rosters · draft classes · franchise files" FontSize="11"
+                           Foreground="{StaticResource MutedBrush}" Margin="2,4,0,0"/>
+            </StackPanel>
+        </StackPanel>
+
+        <!-- source picker -->
+        <Border Grid.Row="1" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource PanelBorderBrush}"
+                BorderThickness="1" CornerRadius="4" Padding="14">
+            <StackPanel>
+                <TextBlock Text="SOURCE SAVE FILE" FontSize="11" FontWeight="SemiBold"
+                           Foreground="{StaticResource MutedBrush}" Margin="0,0,0,8"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="SourcePathBox" Grid.Column="0" IsReadOnly="True"
+                             TextChanged="SourcePath_TextChanged" VerticalContentAlignment="Center"/>
+                    <Button x:Name="BrowseBtn" Grid.Column="1" Content="Browse…" Margin="10,0,0,0" Click="Browse_Click"/>
+                </Grid>
+
+                <Border x:Name="DetectPanel" Background="#00C04814" BorderBrush="{StaticResource PanelBorderBrush}"
+                        BorderThickness="1" CornerRadius="3" Padding="10,8" Margin="0,12,0,0" Visibility="Collapsed">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock x:Name="DetectIcon" Text="▶" Foreground="{StaticResource AccentBrush}"
+                                   FontWeight="Bold" Margin="0,0,8,0"/>
+                        <TextBlock x:Name="DetectText" Foreground="{StaticResource TextBrush}"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </Border>
+
+        <!-- convert -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,14,0,0">
+            <Button x:Name="ConvertBtn" Content="CONVERT" Padding="28,9" Click="Convert_Click" IsEnabled="False"/>
+            <TextBlock x:Name="OutputNote" VerticalAlignment="Center" Margin="16,0,0,0"
+                       Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" MaxWidth="520"/>
+        </StackPanel>
+
+        <!-- log -->
+        <Border Grid.Row="3" Background="#060606" BorderBrush="{StaticResource PanelBorderBrush}"
+                BorderThickness="1" CornerRadius="4" Margin="0,14,0,0">
+            <TextBox x:Name="LogBox" Background="Transparent" Foreground="#9FE0B4"
+                     FontFamily="Consolas" FontSize="12" IsReadOnly="True"
+                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                     BorderThickness="0" Padding="8"/>
+        </Border>
+    </Grid>
+</Window>
