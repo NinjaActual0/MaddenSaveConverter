@@ -9,17 +9,11 @@ namespace MaddenSaveConverter;
 
 public partial class MainWindow : Window
 {
-    // default save locations
-    static readonly string Docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-    static readonly string M26Saves = Path.Combine(Docs, "Madden NFL 26", "saves");
-    static readonly string M27Saves = Path.Combine(Docs, "Madden NFL 27", "Saves");
-
-    // bundled templates (copied next to exe).
-    // NOTE: keep filenames game-valid: ROSTER-(NAME), one dash, no other punctuation —
-    // lets users copy templates straight into their saves folder if ever needed.
-    static readonly string AppDir = AppContext.BaseDirectory;
-    static string TplM26 => Path.Combine(AppDir, "Templates", "ROSTER-TemplateM26");
-    static string TplM27 => Path.Combine(AppDir, "Templates", "ROSTER-TemplateM27");
+    // default save locations + bundled templates (shared with CLI)
+    static readonly string M26Saves = Cli.M26Saves;
+    static readonly string M27Saves = Cli.M27Saves;
+    static string TplM26 => Cli.TplM26;
+    static string TplM27 => Cli.TplM27;
 
     string _sourcePath;
 

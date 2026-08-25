@@ -11,6 +11,11 @@ public partial class App : Application
             Shutdown(SelfTest.Run(e.Args));
             return;
         }
+        if (e.Args.Contains("--convert"))
+        {
+            Shutdown(Cli.RunConvert(e.Args));
+            return;
+        }
         base.OnStartup(e);
     }
 }
