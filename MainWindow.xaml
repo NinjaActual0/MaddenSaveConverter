@@ -17,7 +17,7 @@
             <StackPanel VerticalAlignment="Center" Margin="16,0,0,0">
                 <TextBlock Text="LEGION OF LOOM" FontSize="26" FontWeight="Bold"
                            Foreground="{StaticResource AccentBrush}"/>
-                <TextBlock Text="MADDEN FILE CONVERTER" FontSize="14" FontWeight="SemiBold"
+                <TextBlock Text="MADDEN SAVE CONVERTER" FontSize="14" FontWeight="SemiBold"
                            Foreground="{StaticResource TextBrush}" Margin="2,2,0,0"/>
                 <TextBlock Text="rosters · draft classes · franchise files" FontSize="11"
                            Foreground="{StaticResource MutedBrush}" Margin="2,4,0,0"/>
