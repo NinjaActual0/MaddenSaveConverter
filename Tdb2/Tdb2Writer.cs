@@ -31,10 +31,21 @@ public static class Tdb2Writer
 
             if (t.Type == 5 && t.Unknown2 == 2)
             {
-                var body = WriteCompressedRecordBody(t, rec);
-                var gz = Gzip(body);
-                ms.Write(Leb.Write(gz.Length));
-                ms.Write(gz);
+                // Pass through the ORIGINAL compressed bytes when the record was never
+                // modified: the game's inflater can be picky about foreign deflate output,
+                // and untouched blobs should survive a conversion byte-exactly.
+                if (rec.RawCompressed != null)
+                {
+                    ms.Write(Leb.Write(rec.RawCompressed.Length));
+                    ms.Write(rec.RawCompressed);
+                }
+                else
+                {
+                    var body = WriteCompressedRecordBody(t, rec);
+                    var gz = Gzip(body);
+                    ms.Write(Leb.Write(gz.Length));
+                    ms.Write(gz);
+                }
             }
             else
             {
@@ -109,10 +120,19 @@ public static class Tdb2Writer
         foreach (var rec in st.Records)
         {
             ms.Write(Leb.Write(rec.Index));
-            var body = WriteCompressedRecordBody(st, rec);
-            var gz = Gzip(body);
-            ms.Write(Leb.Write(gz.Length));
-            ms.Write(gz);
+            // pass through original gz bytes for untouched records (game-safe)
+            if (rec.RawCompressed != null)
+            {
+                ms.Write(Leb.Write(rec.RawCompressed.Length));
+                ms.Write(rec.RawCompressed);
+            }
+            else
+            {
+                var body = WriteCompressedRecordBody(st, rec);
+                var gz = Gzip(body);
+                ms.Write(Leb.Write(gz.Length));
+                ms.Write(gz);
+            }
         }
     }
 
