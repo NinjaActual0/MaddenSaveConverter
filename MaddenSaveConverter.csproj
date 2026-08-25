@@ -6,8 +6,8 @@
     <UseWPF>true</UseWPF>
     <Nullable>disable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyTitle>Legion of Loom Madden File Converter</AssemblyTitle>
-    <Product>Legion of Loom Madden File Converter</Product>
+    <AssemblyTitle>Legion of Loom Madden Save Converter</AssemblyTitle>
+    <Product>Legion of Loom Madden Save Converter</Product>
     <Version>0.1.0</Version>
   </PropertyGroup>
 
