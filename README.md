@@ -26,8 +26,11 @@ node convert_m26_to_m27.js <m26 roster> <output path>
 node convert_m27_to_m26.js <m27 roster> <m26 template> <output path>
 ```
 
+## Troubleshooting
+
+> **If your roster is crashing in-game:** After loading the roster, go to the in-game roster editing menu, select **Depth Charts**, and **Auto-Reorder** depth charts for all of your teams. This prevents crashes caused by missing depth chart entries.
+
 ## Notes
 
-- After converting M27→M26, open the roster in-game and use **Auto Reorder** for each team to fix depth charts
 - File must be named `ROSTER-NAME` (single hyphen) for the game to read it
 - All roster files are exactly 6,291,530 bytes (FBCHUNKS format)
