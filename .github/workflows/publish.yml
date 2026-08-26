@@ -1,22 +1,35 @@
-  - name: Setup .NET 10
-    uses: actions/setup-dotnet@v4
-    with:
-      dotnet-version: '10.0.x'
+name: Publish framework-dependent Windows build
 
-  - name: Publish framework-dependent win-x64
-    run: |
-      dotnet publish MaddenSaveConverter.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=false -p:PublishTrimmed=false -o publish/win-x64
+on:
+  release:
+    types: [published]
 
-  - name: Zip publish folder
-    run: |
-      powershell -Command "New-Item -ItemType Directory -Path build -Force | Out-Null; Compress-Archive -Path publish/win-x64\* -DestinationPath build/MaddenSaveConverter-win-x64.zip -Force"
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-  - name: Upload release asset
-    uses: actions/upload-release-asset@v1
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    with:
-      upload_url: ${{ github.event.release.upload_url }}
-      asset_path: build/MaddenSaveConverter-win-x64.zip
-      asset_name: MaddenSaveConverter-win-x64.zip
-      asset_content_type: application/zip
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish framework-dependent win-x64
+        run: |
+          dotnet publish MaddenSaveConverter.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=false -p:PublishTrimmed=false -o publish/win-x64
+
+      - name: Zip publish folder
+        run: |
+          powershell -Command "New-Item -ItemType Directory -Path build -Force | Out-Null; Compress-Archive -Path publish/win-x64\* -DestinationPath build/MaddenSaveConverter-win-x64.zip -Force"
+
+      - name: Upload release asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: build/MaddenSaveConverter-win-x64.zip
+          asset_name: MaddenSaveConverter-win-x64.zip
+          asset_content_type: application/zip
