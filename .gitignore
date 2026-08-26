@@ -1,6 +1,7 @@
 bin/
 obj/
 Templates/
+publish/
 *.user
 *.suo
 
