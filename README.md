@@ -4,9 +4,7 @@ Bidirectional roster converter between Madden 26 and Madden 27.
 
 ## Requirements
 
-- **.NET 10 Desktop Runtime** — [Download](https://dotnet.microsoft.com/download/dotnet/10.0) (Windows x64)
-  - Most Windows 10/11 PCs already have this installed
-  - The app is portable — just run the exe, no installation needed
+- None — self-contained single exe, no installation needed. Just download and run.
 
 ## Usage
 
