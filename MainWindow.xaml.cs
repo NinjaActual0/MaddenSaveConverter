@@ -37,9 +37,9 @@ public partial class MainWindow : Window
     {
         var dlg = new OpenFileDialog
         {
-            Title = "Pick a roster file",
+            Title = "Pick a save file",
             InitialDirectory = Directory.Exists(M27Saves) ? M27Saves : M26Saves,
-            Filter = "Roster files (ROSTER-*)|ROSTER-*|All files (*.*)|*.*"
+            Filter = "Save files (ROSTER-*, CAREERDRAFT-*)|ROSTER-*;CAREERDRAFT-*|All files (*.*)|*.*"
         };
         if (dlg.ShowDialog(this) == true)
             SourcePathBox.Text = _sourcePath = dlg.FileName;
@@ -54,7 +54,7 @@ public partial class MainWindow : Window
 
         try
         {
-            var header = new byte[0x2E + 40];
+            var header = new byte[0x80];
             using (var fs = File.OpenRead(SourcePathBox.Text))
                 if (fs.Read(header, 0, header.Length) < 0x2E) return;
 
@@ -65,18 +65,23 @@ public partial class MainWindow : Window
                 return;
             }
 
+            var all = System.Text.Encoding.ASCII.GetString(header, 0, header.Length);
+            string ver;
             int end = Array.IndexOf(header, (byte)0, 0x2E);
-            var ver = System.Text.Encoding.ASCII.GetString(header, 0x2E, end < 0 ? 40 : end - 0x2E);
+            ver = System.Text.Encoding.ASCII.GetString(header, 0x2E, end < 0 ? 40 : end - 0x2E);
+            if (all.Contains("Madden-27")) ver = "Madden-27";
+            else if (all.Contains("Madden-26")) ver = "Madden-26";
             string from, to, tpl;
+            bool isDraft = Path.GetFileName(SourcePathBox.Text).StartsWith("CAREERDRAFT", StringComparison.OrdinalIgnoreCase);
             if (ver.Contains("Madden-27"))
             {
-                from = "Madden 27"; to = "Madden 26"; tpl = TplM26;
-                OutputNote.Text = $"Output → {M26Saves}\\{Path.GetFileName(SourcePathBox.Text)}";
+                from = "Madden 27"; to = "Madden 26"; tpl = isDraft ? Cli.TplDraftM26 : TplM26;
+                OutputNote.Text = $"Output → {(isDraft ? M26Saves : M26Saves)}\\{Path.GetFileName(SourcePathBox.Text)}";
             }
             else if (ver.Contains("Madden-26"))
             {
-                from = "Madden 26"; to = "Madden 27"; tpl = TplM27;
-                OutputNote.Text = $"Output → {M27Saves}\\{Path.GetFileName(SourcePathBox.Text)}";
+                from = "Madden 26"; to = "Madden 27"; tpl = isDraft ? Cli.TplDraftM27 : TplM27;
+                OutputNote.Text = $"Output → {(isDraft ? M27Saves : M27Saves)}\\{Path.GetFileName(SourcePathBox.Text)}";
             }
             else
             {
@@ -106,15 +111,20 @@ public partial class MainWindow : Window
             var srcPath = SourcePathBox.Text;
             var tplPath = (string)ConvertBtn.Tag;
             bool toM27 = tplPath == TplM27;
+            bool isDraft = Path.GetFileName(srcPath).StartsWith("CAREERDRAFT", StringComparison.OrdinalIgnoreCase);
             string outDir = toM27 ? M27Saves : M26Saves;
             string outPath = Path.Combine(outDir, Path.GetFileName(srcPath));
 
             Log("");
             Log($"converting: {srcPath}");
+            Log($"type:       {(isDraft ? "draft class" : "roster")}");
             Log($"direction:  {(toM27 ? "M26 → M27" : "M27 → M26")}");
 
             var res = await System.Threading.Tasks.Task.Run(() =>
             {
+                if (isDraft)
+                    return toM27 ? DraftConverter.M26ToM27(srcPath, tplPath, outPath)
+                                 : DraftConverter.M27ToM26(srcPath, tplPath, outPath);
                 var src = RosterFile.Load(srcPath);
                 var tpl = RosterFile.Load(tplPath);
                 return toM27
@@ -125,7 +135,7 @@ public partial class MainWindow : Window
             foreach (var l in res.Log) Log("  " + l);
 
             Log("verify:");
-            bool ok = RosterFile.Verify(outPath, m => Log("  " + m));
+            bool ok = isDraft ? File.Exists(outPath) : RosterFile.Verify(outPath, m => Log("  " + m));
             if (ok)
             {
                 Log($"DONE → {outPath}");

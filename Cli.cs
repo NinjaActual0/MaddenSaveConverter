@@ -11,14 +11,35 @@ public static class Cli
     public static readonly string M27Saves = Path.Combine(Docs, "Madden NFL 27", "Saves");
     public static string TplM26 => Path.Combine(AppContext.BaseDirectory, "Templates", "ROSTER-TemplateM26");
     public static string TplM27 => Path.Combine(AppContext.BaseDirectory, "Templates", "ROSTER-TemplateM27");
+    public static string TplDraftM26 => ResolveDraftTpl("M26", "CAREERDRAFT-TemplateM26");
+    public static string TplDraftM27 => ResolveDraftTpl("M27", "CAREERDRAFT-TemplateM27");
+    static string ResolveDraftTpl(string tag, string tplName)
+    {
+        var p = Path.Combine(AppContext.BaseDirectory, "Templates", tplName);
+        if (File.Exists(p)) return p;
+        var saves = tag == "M27" ? M27Saves : M26Saves;
+        if (Directory.Exists(saves))
+        {
+            var files = Directory.GetFiles(saves, "CAREERDRAFT-*");
+            // prefer a file that looks like a full class (2020) over older ones
+            var pref = files.FirstOrDefault(f => Path.GetFileName(f).Contains("2020"));
+            if (pref != null) return pref;
+            var f = files.FirstOrDefault();
+            if (f != null) return f;
+        }
+        return p;
+    }
 
     // "M26"/"M27"/null based on the FBCHUNKS header version string
     public static string DetectVersion(string path)
     {
-        var header = new byte[0x2E + 40];
+        var header = new byte[0x80];
         using var fs = File.OpenRead(path);
-        if (fs.Read(header, 0, header.Length) < 0x2E) return null;
+        if (fs.Read(header, 0, header.Length) < 8) return null;
         if (System.Text.Encoding.ASCII.GetString(header, 0, 8) != "FBCHUNKS") return null;
+        var all = System.Text.Encoding.ASCII.GetString(header, 0, header.Length);
+        if (all.Contains("Madden-27")) return "M27";
+        if (all.Contains("Madden-26")) return "M26";
         int end = Array.IndexOf(header, (byte)0, 0x2E);
         var ver = System.Text.Encoding.ASCII.GetString(header, 0x2E, end < 0 ? 40 : end - 0x2E);
         if (ver.Contains("Madden-27")) return "M27";
@@ -144,18 +165,22 @@ public static class Cli
 
         string ver = DetectVersion(srcPath);
         if (ver == null) { Console.WriteLine("[error] not an FBCHUNKS M26/M27 save"); return 1; }
-        string tplPath = ver == "M27" ? TplM26 : TplM27;
-        Console.WriteLine($"source: {srcPath} ({ver})");
+        bool isDraft = Path.GetFileName(srcPath).StartsWith("CAREERDRAFT", StringComparison.OrdinalIgnoreCase);
+        string tplPath = isDraft ? (ver == "M27" ? TplDraftM26 : TplDraftM27) : (ver == "M27" ? TplM26 : TplM27);
+        Console.WriteLine($"source: {srcPath} ({ver}) {(isDraft ? "[draft]" : "[roster]")}");
         Console.WriteLine($"template: {tplPath}");
-        Console.WriteLine($"personas: {(zeroPersonas ? "zeroed" : "randomized sampling")}");
+        if (!isDraft) Console.WriteLine($"personas: {(zeroPersonas ? "zeroed" : "randomized sampling")}");
 
-        ConvertResult res = ver == "M26"
-            ? RosterProfiles.M26ToM27(RosterFile.Load(srcPath), RosterFile.Load(tplPath), outPath, !zeroPersonas)
-            : RosterProfiles.M27ToM26(RosterFile.Load(srcPath), RosterFile.Load(tplPath), outPath);
+        ConvertResult res = isDraft
+            ? (ver == "M26" ? DraftConverter.M26ToM27(srcPath, tplPath, outPath) : DraftConverter.M27ToM26(srcPath, tplPath, outPath))
+            : ver == "M26"
+                ? RosterProfiles.M26ToM27(RosterFile.Load(srcPath), RosterFile.Load(tplPath), outPath, !zeroPersonas)
+                : RosterProfiles.M27ToM26(RosterFile.Load(srcPath), RosterFile.Load(tplPath), outPath);
         foreach (var l in res.Log) Console.WriteLine("  " + l);
 
         bool ok = true;
-        RosterFile.Verify(outPath, m => { Console.WriteLine("  " + m); if (m.Contains("BAD") || m.Contains("FAIL")) ok = false; });
+        if (isDraft) ok = File.Exists(outPath) && new FileInfo(outPath).Length > 1000;
+        else RosterFile.Verify(outPath, m => { Console.WriteLine("  " + m); if (m.Contains("BAD") || m.Contains("FAIL")) ok = false; });
         Console.WriteLine(ok && res.Success ? $"DONE -> {outPath}" : "FAILED");
         return ok && res.Success ? 0 : 1;
     }
