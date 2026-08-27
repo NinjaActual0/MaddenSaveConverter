@@ -38,11 +38,19 @@ public class RosterFile
         if (fb.Length < 0x4A || Encoding.ASCII.GetString(fb, 0, 8) != "FBCHUNKS")
             throw new InvalidDataException(path + " is not an FBCHUNKS save file");
 
-        int year = BitConverter.ToUInt16(fb, 0x16);
-        int dataStart = year >= 2021 ? 0x4A : 0x3E;
+        int dataStart;
+        if (fb.Length >= 0x53 && fb[0x52] == 0x78 && (fb[0x53] == 0x9C || fb[0x53] == 0xDA || fb[0x53] == 0x01))
+            dataStart = 0x52;
+        else if (fb.Length >= 0x4B && fb[0x4A] == 0x78 && (fb[0x4B] == 0x9C || fb[0x4B] == 0xDA || fb[0x4B] == 0x01))
+            dataStart = 0x4A;
+        else
+        {
+            int year = BitConverter.ToUInt16(fb, 0x16);
+            dataStart = year >= 2021 ? 0x4A : 0x3E;
+        }
 
         var inner = Inflate(fb, dataStart);
-        var rf = new RosterFile { Header = fb[0..dataStart] };
+        var rf = new RosterFile { Header = fb[0..dataStart], SaveSize = fb.Length };
         rf.Db = Tdb2Reader.Parse(inner, Console.WriteLine);
         return rf;
     }
@@ -92,14 +100,15 @@ public class RosterFile
     public static bool Verify(string path, Action<string> log)
     {
         var fb = File.ReadAllBytes(path);
-        var inner = Inflate(fb, 0x4A);
+        int dataStart = (fb.Length >= 0x53 && fb[0x52] == 0x78 && (fb[0x53] == 0x9C || fb[0x53] == 0xDA || fb[0x53] == 0x01)) ? 0x52 : 0x4A;
+        var inner = Inflate(fb, dataStart);
         uint storedLen = BitConverter.ToUInt32(fb, 0x12);
         uint storedCrc = BitConverter.ToUInt32(fb, 0x1A);
         uint calcCrc = Crc32Be(inner);
         bool lenOk = storedLen == (uint)inner.Length;
         bool crcOk = storedCrc == calcCrc;
         log($"  size {fb.Length} | len {(lenOk ? "OK" : $"BAD ({storedLen} vs {inner.Length})")} | crc {(crcOk ? "OK" : $"BAD (0x{storedCrc:X8} vs 0x{calcCrc:X8})")}");
-        return lenOk && crcOk && fb.Length == 6291530;
+        return lenOk && crcOk;
     }
 
     // CRC-32/BZIP2 (poly 0x04C11DB7, MSB-first, init/xorout 0xFFFFFFFF) — the roster checksum

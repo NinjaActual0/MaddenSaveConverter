@@ -39,7 +39,7 @@ public partial class MainWindow : Window
         {
             Title = "Pick a save file",
             InitialDirectory = Directory.Exists(M27Saves) ? M27Saves : M26Saves,
-            Filter = "Save files (ROSTER-*, CAREERDRAFT-*)|ROSTER-*;CAREERDRAFT-*|All files (*.*)|*.*"
+            Filter = "Save files (ROSTER-*, CAREERDRAFT-*, CAREER-*)|ROSTER-*;CAREERDRAFT-*;CAREER-*|All files (*.*)|*.*"
         };
         if (dlg.ShowDialog(this) == true)
             SourcePathBox.Text = _sourcePath = dlg.FileName;
@@ -72,16 +72,20 @@ public partial class MainWindow : Window
             if (all.Contains("Madden-27")) ver = "Madden-27";
             else if (all.Contains("Madden-26")) ver = "Madden-26";
             string from, to, tpl;
-            bool isDraft = Path.GetFileName(SourcePathBox.Text).StartsWith("CAREERDRAFT", StringComparison.OrdinalIgnoreCase);
+            string fn = Path.GetFileName(SourcePathBox.Text);
+            bool isDraft = fn.StartsWith("CAREERDRAFT", StringComparison.OrdinalIgnoreCase);
+            bool isFranchise = fn.StartsWith("CAREER-", StringComparison.OrdinalIgnoreCase) && !isDraft;
             if (ver.Contains("Madden-27"))
             {
-                from = "Madden 27"; to = "Madden 26"; tpl = isDraft ? Cli.TplDraftM26 : TplM26;
-                OutputNote.Text = $"Output → {(isDraft ? M26Saves : M26Saves)}\\{Path.GetFileName(SourcePathBox.Text)}";
+                from = "Madden 27"; to = "Madden 26";
+                tpl = isDraft ? Cli.TplDraftM26 : isFranchise ? Cli.TplFranchM26 : TplM26;
+                OutputNote.Text = $"Output → {M26Saves}\\{Path.GetFileName(SourcePathBox.Text)}";
             }
             else if (ver.Contains("Madden-26"))
             {
-                from = "Madden 26"; to = "Madden 27"; tpl = isDraft ? Cli.TplDraftM27 : TplM27;
-                OutputNote.Text = $"Output → {(isDraft ? M27Saves : M27Saves)}\\{Path.GetFileName(SourcePathBox.Text)}";
+                from = "Madden 26"; to = "Madden 27";
+                tpl = isDraft ? Cli.TplDraftM27 : isFranchise ? Cli.TplFranchM27 : TplM27;
+                OutputNote.Text = $"Output → {M27Saves}\\{Path.GetFileName(SourcePathBox.Text)}";
             }
             else
             {
@@ -91,8 +95,9 @@ public partial class MainWindow : Window
                 return;
             }
 
+            string kind = isDraft ? "draft class" : isFranchise ? "franchise" : "roster";
             DetectPanel.Visibility = Visibility.Visible;
-            DetectText.Text = $"Detected: {from} roster ({ver})   →   will convert for {to}";
+            DetectText.Text = $"Detected: {from} {kind} ({ver})   →   will convert for {to}";
 
             ConvertBtn.IsEnabled = true;
             ConvertBtn.Tag = tpl;
@@ -110,14 +115,16 @@ public partial class MainWindow : Window
             ConvertBtn.IsEnabled = false;
             var srcPath = SourcePathBox.Text;
             var tplPath = (string)ConvertBtn.Tag;
-            bool toM27 = tplPath == TplM27;
-            bool isDraft = Path.GetFileName(srcPath).StartsWith("CAREERDRAFT", StringComparison.OrdinalIgnoreCase);
+            bool toM27 = tplPath == TplM27 || tplPath == Cli.TplDraftM27 || tplPath == Cli.TplFranchM27;
+            string fn2 = Path.GetFileName(srcPath);
+            bool isDraft = fn2.StartsWith("CAREERDRAFT", StringComparison.OrdinalIgnoreCase);
+            bool isFranchise = fn2.StartsWith("CAREER-", StringComparison.OrdinalIgnoreCase) && !isDraft;
             string outDir = toM27 ? M27Saves : M26Saves;
             string outPath = Path.Combine(outDir, Path.GetFileName(srcPath));
 
             Log("");
             Log($"converting: {srcPath}");
-            Log($"type:       {(isDraft ? "draft class" : "roster")}");
+            Log($"type:       {(isDraft ? "draft class" : isFranchise ? "franchise" : "roster")}");
             Log($"direction:  {(toM27 ? "M26 → M27" : "M27 → M26")}");
 
             var res = await System.Threading.Tasks.Task.Run(() =>
@@ -125,6 +132,9 @@ public partial class MainWindow : Window
                 if (isDraft)
                     return toM27 ? DraftConverter.M26ToM27(srcPath, tplPath, outPath)
                                  : DraftConverter.M27ToM26(srcPath, tplPath, outPath);
+                if (isFranchise)
+                    return toM27 ? FranchiseConverter.M26ToM27(srcPath, tplPath, outPath)
+                                 : FranchiseConverter.M27ToM26(srcPath, tplPath, outPath);
                 var src = RosterFile.Load(srcPath);
                 var tpl = RosterFile.Load(tplPath);
                 return toM27
@@ -135,7 +145,7 @@ public partial class MainWindow : Window
             foreach (var l in res.Log) Log("  " + l);
 
             Log("verify:");
-            bool ok = isDraft ? File.Exists(outPath) : RosterFile.Verify(outPath, m => Log("  " + m));
+            bool ok = (isDraft || isFranchise) ? File.Exists(outPath) : RosterFile.Verify(outPath, m => Log("  " + m));
             if (ok)
             {
                 Log($"DONE → {outPath}");

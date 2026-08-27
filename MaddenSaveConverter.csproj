@@ -25,4 +25,8 @@
     <Resource Include="Assets\logo.png" Link="Assets\logo.png" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="convert_franchise_m26_to_m27.mjs" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

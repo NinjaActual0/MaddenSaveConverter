@@ -13,6 +13,8 @@ public static class Cli
     public static string TplM27 => Path.Combine(AppContext.BaseDirectory, "Templates", "ROSTER-TemplateM27");
     public static string TplDraftM26 => ResolveDraftTpl("M26", "CAREERDRAFT-TemplateM26");
     public static string TplDraftM27 => ResolveDraftTpl("M27", "CAREERDRAFT-TemplateM27");
+    public static string TplFranchM26 => ResolveFranchTpl("M26", "CAREER-TemplateM26");
+    public static string TplFranchM27 => ResolveFranchTpl("M27", "CAREER-TemplateM27");
     static string ResolveDraftTpl(string tag, string tplName)
     {
         var p = Path.Combine(AppContext.BaseDirectory, "Templates", tplName);
@@ -23,6 +25,21 @@ public static class Cli
             var files = Directory.GetFiles(saves, "CAREERDRAFT-*");
             // prefer a file that looks like a full class (2020) over older ones
             var pref = files.FirstOrDefault(f => Path.GetFileName(f).Contains("2020"));
+            if (pref != null) return pref;
+            var f = files.FirstOrDefault();
+            if (f != null) return f;
+        }
+        return p;
+    }
+    static string ResolveFranchTpl(string tag, string tplName)
+    {
+        var p = Path.Combine(AppContext.BaseDirectory, "Templates", tplName);
+        if (File.Exists(p)) return p;
+        var saves = tag == "M27" ? M27Saves : M26Saves;
+        if (Directory.Exists(saves))
+        {
+            var files = Directory.GetFiles(saves, "CAREER-*").Where(f => !Path.GetFileName(f).StartsWith("CAREERDRAFT")).ToArray();
+            var pref = files.FirstOrDefault(f => Path.GetFileName(f).Contains("2011") || Path.GetFileName(f).Contains("2020"));
             if (pref != null) return pref;
             var f = files.FirstOrDefault();
             if (f != null) return f;
@@ -165,21 +182,28 @@ public static class Cli
 
         string ver = DetectVersion(srcPath);
         if (ver == null) { Console.WriteLine("[error] not an FBCHUNKS M26/M27 save"); return 1; }
-        bool isDraft = Path.GetFileName(srcPath).StartsWith("CAREERDRAFT", StringComparison.OrdinalIgnoreCase);
-        string tplPath = isDraft ? (ver == "M27" ? TplDraftM26 : TplDraftM27) : (ver == "M27" ? TplM26 : TplM27);
-        Console.WriteLine($"source: {srcPath} ({ver}) {(isDraft ? "[draft]" : "[roster]")}");
+        string fn = Path.GetFileName(srcPath);
+        bool isDraft = fn.StartsWith("CAREERDRAFT", StringComparison.OrdinalIgnoreCase);
+        bool isFranchise = fn.StartsWith("CAREER-", StringComparison.OrdinalIgnoreCase) && !isDraft;
+        string tplPath;
+        string kind;
+        if (isDraft) { tplPath = ver == "M27" ? TplDraftM26 : TplDraftM27; kind = "[draft]"; }
+        else if (isFranchise) { tplPath = ver == "M27" ? TplFranchM26 : TplFranchM27; kind = "[franchise]"; }
+        else { tplPath = ver == "M27" ? TplM26 : TplM27; kind = "[roster]"; }
+        Console.WriteLine($"source: {srcPath} ({ver}) {kind}");
         Console.WriteLine($"template: {tplPath}");
-        if (!isDraft) Console.WriteLine($"personas: {(zeroPersonas ? "zeroed" : "randomized sampling")}");
+        if (!isDraft && !isFranchise) Console.WriteLine($"personas: {(zeroPersonas ? "zeroed" : "randomized sampling")}");
 
-        ConvertResult res = isDraft
-            ? (ver == "M26" ? DraftConverter.M26ToM27(srcPath, tplPath, outPath) : DraftConverter.M27ToM26(srcPath, tplPath, outPath))
-            : ver == "M26"
+        ConvertResult res;
+        if (isDraft) res = ver == "M26" ? DraftConverter.M26ToM27(srcPath, tplPath, outPath) : DraftConverter.M27ToM26(srcPath, tplPath, outPath);
+        else if (isFranchise) res = ver == "M26" ? FranchiseConverter.M26ToM27(srcPath, tplPath, outPath) : FranchiseConverter.M27ToM26(srcPath, tplPath, outPath);
+        else res = ver == "M26"
                 ? RosterProfiles.M26ToM27(RosterFile.Load(srcPath), RosterFile.Load(tplPath), outPath, !zeroPersonas)
                 : RosterProfiles.M27ToM26(RosterFile.Load(srcPath), RosterFile.Load(tplPath), outPath);
         foreach (var l in res.Log) Console.WriteLine("  " + l);
 
         bool ok = true;
-        if (isDraft) ok = File.Exists(outPath) && new FileInfo(outPath).Length > 1000;
+        if (isDraft || isFranchise) ok = File.Exists(outPath) && new FileInfo(outPath).Length > 1000;
         else RosterFile.Verify(outPath, m => { Console.WriteLine("  " + m); if (m.Contains("BAD") || m.Contains("FAIL")) ok = false; });
         Console.WriteLine(ok && res.Success ? $"DONE -> {outPath}" : "FAILED");
         return ok && res.Success ? 0 : 1;

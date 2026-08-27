@@ -6,3 +6,4 @@ publish/
 *.suo
 
 publish/
+node_modules/
