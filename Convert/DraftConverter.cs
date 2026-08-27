@@ -60,12 +60,16 @@ public static class DraftConverter
 
     public static ConvertResult M27ToM26(string srcPath, string tplPath, string outPath)
     {
-        // For now just do reverse positional (no name mapping) - TODO name-based if needed
         var res = new ConvertResult { OutputPath = outPath };
+        void log(string s) => res.Log.Add(s);
         var src = File.ReadAllBytes(srcPath);
         var tpl = File.ReadAllBytes(tplPath);
         var srcPlayers = Parse(src, false);
         var tplPlayers = Parse(tpl, true);
+        log($"M27 draft players: {srcPlayers.Count}");
+        log($"M26 template players: {tplPlayers.Count}");
+        var tplByName = new Dictionary<string, DraftPlayer>();
+        foreach (var p in tplPlayers) { var k = p.Fn + "|" + p.Ln; if (!tplByName.ContainsKey(k)) tplByName[k] = p; }
         var outBuf = (byte[])tpl.Clone();
         int n = Math.Min(srcPlayers.Count, tplPlayers.Count);
         for (int i = 0; i < n; i++)
@@ -74,16 +78,26 @@ public static class DraftConverter
             var d = tplPlayers[i];
             var fnBytes = new byte[17]; Encoding.ASCII.GetBytes(s.Fn).CopyTo(fnBytes, 0); Array.Copy(fnBytes, 0, outBuf, d.Off, 17);
             var lnBytes = new byte[21]; Encoding.ASCII.GetBytes(s.Ln).CopyTo(lnBytes, 0); Array.Copy(lnBytes, 0, outBuf, d.Off + 17, 21);
-            // hometown in M26 is 28 bytes at d.Off+38 - zero it
-            Array.Clear(outBuf, d.Off + 38, 28);
+            // hometown 28 bytes - keep from name-matched tpl if available
+            if (tplByName.TryGetValue(s.Fn + "|" + s.Ln, out var match))
+                Array.Copy(tpl, match.Off + 38, outBuf, d.Off + 38, 28);
+            else
+                Array.Clear(outBuf, d.Off + 38, 28);
             Array.Copy(src, s.AssetStart, outBuf, d.AssetStart, 32);
             var m27Stats = src.AsSpan(s.StatsStart, 90).ToArray();
-            var newStats = new byte[92]; m27Stats.CopyTo(newStats, 0);
+            byte[] portraitSrc;
+            if (tplByName.TryGetValue(s.Fn + "|" + s.Ln, out var m))
+                portraitSrc = tpl.AsSpan(m.StatsStart + 64, 26).ToArray();
+            else
+                portraitSrc = tpl.AsSpan(d.StatsStart + 64, 28).ToArray(); // M26 last 28
+            var newStats = new byte[92];
+            Array.Copy(m27Stats, 0, newStats, 0, 64);
+            Array.Copy(portraitSrc, 0, newStats, 64, Math.Min(portraitSrc.Length, 28));
             Array.Copy(newStats, 0, outBuf, d.StatsStart, 92);
         }
         File.WriteAllBytes(outPath, outBuf);
+        log($"transplanted {n} players M27->M26 (name-matched portraits/hometowns)");
         res.Success = true;
-        res.Log.Add($"transplanted {n} players M27->M26");
         return res;
     }
 
