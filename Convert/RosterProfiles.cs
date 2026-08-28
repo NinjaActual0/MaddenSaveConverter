@@ -14,6 +14,9 @@ public static class RosterProfiles
     // Table order each target game expects (observed from official rosters)
     static readonly string[] M27Order = { "BLOB", "DCHT", "DFTP", "INJY", "PLAY", "PLCT", "PRSN", "TEAM" };
     static readonly string[] M26Order = { "BLOB", "DCHT", "DFTP", "INJY", "PLAY", "PLGS", "TEAM" };
+    static readonly string[] M24Order = { "DCHT", "INJY", "PLAY", "TEAM" };
+
+    public static ConvertResult M24ToM27(RosterFile src, RosterFile tpl, string outPath) => M26ToM27(src, tpl, outPath);
 
     public static ConvertResult M26ToM27(RosterFile src, RosterFile tpl, string outPath, bool randomizePersona = true)
     {

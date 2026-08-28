@@ -47,7 +47,7 @@ public static class Cli
         return p;
     }
 
-    // "M26"/"M27"/null based on the FBCHUNKS header version string
+    // "M26"/"M27"/null based on the FBCHUNKS header version string — also handles older M22/M24 for porting
     public static string DetectVersion(string path)
     {
         var header = new byte[0x80];
@@ -57,10 +57,12 @@ public static class Cli
         var all = System.Text.Encoding.ASCII.GetString(header, 0, header.Length);
         if (all.Contains("Madden-27")) return "M27";
         if (all.Contains("Madden-26")) return "M26";
+        if (all.Contains("M22_") || all.Contains("M22-") || all.Contains("M24_") || all.Contains("M24-") || all.Contains("Madden-24") || all.Contains("Madden-22")) return "M24";
         int end = Array.IndexOf(header, (byte)0, 0x2E);
         var ver = System.Text.Encoding.ASCII.GetString(header, 0x2E, end < 0 ? 40 : end - 0x2E);
         if (ver.Contains("Madden-27")) return "M27";
         if (ver.Contains("Madden-26")) return "M26";
+        if (ver.Contains("M22") || ver.Contains("M24")) return "M24";
         return null;
     }
 
@@ -187,8 +189,10 @@ public static class Cli
         bool isFranchise = fn.StartsWith("CAREER-", StringComparison.OrdinalIgnoreCase) && !isDraft;
         string tplPath;
         string kind;
+        bool isOlderRoster = ver == "M24" && !isDraft && !isFranchise;
         if (isDraft) { tplPath = ver == "M27" ? TplDraftM26 : TplDraftM27; kind = "[draft]"; }
         else if (isFranchise) { tplPath = ver == "M27" ? TplFranchM26 : TplFranchM27; kind = "[franchise]"; }
+        else if (isOlderRoster) { tplPath = TplM27; kind = "[roster M24->M27]"; }
         else { tplPath = ver == "M27" ? TplM26 : TplM27; kind = "[roster]"; }
         Console.WriteLine($"source: {srcPath} ({ver}) {kind}");
         Console.WriteLine($"template: {tplPath}");
@@ -197,14 +201,17 @@ public static class Cli
         ConvertResult res;
         if (isDraft) res = ver == "M26" ? DraftConverter.M26ToM27(srcPath, tplPath, outPath) : DraftConverter.M27ToM26(srcPath, tplPath, outPath);
         else if (isFranchise) res = ver == "M26" ? FranchiseConverter.M26ToM27(srcPath, tplPath, outPath) : FranchiseConverter.M27ToM26(srcPath, tplPath, outPath);
+        else if (isOlderRoster) res = RosterProfiles.M24ToM27(RosterFile.Load(srcPath), RosterFile.Load(tplPath), outPath);
         else res = ver == "M26"
                 ? RosterProfiles.M26ToM27(RosterFile.Load(srcPath), RosterFile.Load(tplPath), outPath, !zeroPersonas)
                 : RosterProfiles.M27ToM26(RosterFile.Load(srcPath), RosterFile.Load(tplPath), outPath);
         foreach (var l in res.Log) Console.WriteLine("  " + l);
 
         bool ok = true;
-        if (isDraft || isFranchise) ok = File.Exists(outPath) && new FileInfo(outPath).Length > 1000;
+        if (isDraft || isFranchise || isOlderRoster) ok = File.Exists(outPath) && new FileInfo(outPath).Length > 1000;
         else RosterFile.Verify(outPath, m => { Console.WriteLine("  " + m); if (m.Contains("BAD") || m.Contains("FAIL")) ok = false; });
+        // For older rosters also verify via RosterFile even though we already checked existence
+        if (isOlderRoster) { RosterFile.Verify(outPath, m => Console.WriteLine("  " + m)); }
         Console.WriteLine(ok && res.Success ? $"DONE -> {outPath}" : "FAILED");
         return ok && res.Success ? 0 : 1;
     }
