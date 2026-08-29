@@ -6,8 +6,8 @@
     <UseWPF>true</UseWPF>
     <Nullable>disable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyTitle>Legion of Loom Madden Save Converter</AssemblyTitle>
-    <Product>Legion of Loom Madden Save Converter</Product>
+    <AssemblyTitle>Legion of Loom Madden Save Tool</AssemblyTitle>
+    <Product>Legion of Loom Madden Save Tool</Product>
     <Version>1.2.0</Version>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
